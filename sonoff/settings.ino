@@ -710,6 +710,8 @@ void CFG_Delta()
       }
       memcpy_P(sysCfg.sfb_code[0], sfb_codeDefault, 9);
     }
+    if (sysCfg.version < 0x05060101)
+        sysCfg.domoticz_fan_idx = 0;
     if (sysCfg.version < 0x05080000) {
       uint8_t cfg_wsflg = 0;
       for (byte i = 0; i < MAX_GPIO_PIN; i++) {

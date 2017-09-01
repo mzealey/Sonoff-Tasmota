@@ -2189,6 +2189,9 @@ void update_fan_mode() {
   getTopic_P(stopic, 1, sysCfg.mqtt_topic, PSTR("FANMODE"));
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%d"), fan_mode);
   mqtt_publish(stopic);
+#ifdef USE_DOMOTICZ
+    domoticz_updateFanState();
+#endif  // USE_DOMOTICZ
 
   switch( fan_mode ) {
     case FAN_MODE_OFF:

@@ -206,6 +206,9 @@ struct SYSCFG {
   // 5.4.1
   uint8_t       sfb_code[17][9];
 
+  // mark
+  unsigned long domoticz_fan_idx;
+
 } sysCfg;
 
 struct RTCMEM {

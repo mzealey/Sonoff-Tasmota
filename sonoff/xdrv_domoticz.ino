@@ -35,6 +35,8 @@ const char HTTP_FORM_DOMOTICZ_SENSOR[] PROGMEM =
   "<tr><td><b>" D_DOMOTICZ_SENSOR_IDX " {1</b> - {2</td><td width='20%'><input id='l{1' name='l{1' length=8 placeholder='0' value='{5'></td></tr>";
 const char HTTP_FORM_DOMOTICZ_TIMER[] PROGMEM =
   "<tr><td><b>" D_DOMOTICZ_UPDATE_TIMER "</b> (" STR(DOMOTICZ_UPDATE_TIMER) ")</td><td><input id='ut' name='ut' length=32 placeholder='" STR(DOMOTICZ_UPDATE_TIMER) "' value='{6'</td></tr>";
+const char HTTP_FORM_DOMOTICZ_FAN[] PROGMEM =
+  "<tr><td><b>Fan</b></td><td><input id='fan' name='fan' length=8 value='{9'</td></tr>";
 #endif  // USE_WEBSERVER
 
 const char domoticz_sensors[DOMOTICZ_MAX_SENSORS][DOMOTICZ_SENSORS_MAX_STRING_LENGTH] PROGMEM =
@@ -46,6 +48,65 @@ char domoticz_out_topic[] = DOMOTICZ_OUT_TOPIC;
 boolean domoticz_subscribe = false;
 int domoticz_update_timer = 0;
 byte domoticz_update_flag = 1;
+
+/*
+high, medium, low
+
+{
+   "Battery" : 255,
+   "LevelActions" : "||",
+   "LevelNames" : "Off|High|Medium",
+   "LevelOffHidden" : "false",
+   "RSSI" : 12,
+   "SelectorStyle" : "0",
+   "dtype" : "Light/Switch",
+   "id" : "00014064",
+   "idx" : 20,
+   "name" : "Office Ceiling Fan",
+   "nvalue" : 2,
+   "stype" : "Selector Switch",
+   "svalue1" : "20",
+   "switchType" : "Selector",
+   "unit" : 1
+}
+
+{
+   "Battery" : 255,
+   "LevelActions" : "||",
+   "LevelNames" : "Off|High|Medium",
+   "LevelOffHidden" : "false",
+   "RSSI" : 12,
+   "SelectorStyle" : "0",
+   "dtype" : "Light/Switch",
+   "id" : "00014064",
+   "idx" : 20,
+   "name" : "Office Ceiling Fan",
+   "nvalue" : 2,
+   "stype" : "Selector Switch",
+   "svalue1" : "10",
+   "switchType" : "Selector",
+   "unit" : 1
+}
+
+{
+   "Battery" : 255,
+   "LevelActions" : "||",
+   "LevelNames" : "Off|High|Medium",
+   "LevelOffHidden" : "false",
+   "RSSI" : 12,
+   "SelectorStyle" : "0",
+   "dtype" : "Light/Switch",
+   "id" : "00014064",
+   "idx" : 20,
+   "name" : "Office Ceiling Fan",
+   "nvalue" : 0,
+   "stype" : "Selector Switch",
+   "svalue1" : "0",
+   "switchType" : "Selector",
+   "unit" : 1
+}
+
+*/
 
 void mqtt_publishDomoticzPowerState(byte device)
 {
@@ -62,6 +123,23 @@ void mqtt_publishDomoticzPowerState(byte device)
       sysCfg.domoticz_relay_idx[device -1], (power & (0x01 << (device -1))) ? 1 : 0);
     mqtt_publish(domoticz_in_topic);
   }
+}
+
+void mqtt_publishDomoticzFanState()
+{
+  if (sysCfg.flag.mqtt_enabled && sysCfg.domoticz_fan_idx) {
+      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"idx\":%d,\"nvalue\":%d,\"svalue\":\"%d\"}"),
+        sysCfg.domoticz_fan_idx, fan_mode == 0 ? 0 : 2, fan_mode * 10);
+      mqtt_publish(domoticz_in_topic);
+  }
+}
+
+void domoticz_updateFanState()
+{
+  if (domoticz_update_flag) {
+    mqtt_publishDomoticzFanState();
+  }
+  domoticz_update_flag = 1;
 }
 
 void domoticz_updatePowerState(byte device)
@@ -81,6 +159,7 @@ void domoticz_mqttUpdate()
       for (byte i = 1; i <= Maxdevice; i++) {
         mqtt_publishDomoticzPowerState(i);
       }
+      mqtt_publishDomoticzFanState();
     }
   }
 }
@@ -156,6 +235,12 @@ boolean domoticz_mqttData(char *topicBuf, uint16_t stopicBuf, char *dataBuf, uin
 
     if (nvalue >= 0 && nvalue <= 2) {
       for (byte i = 0; i < Maxdevice; i++) {
+        if( idx == sysCfg.domoticz_fan_idx ) {
+          found = 1;
+          snprintf_P(topicBuf, stopicBuf, PSTR("/FANMODE"));
+          snprintf_P(dataBuf, sdataBuf, PSTR("%d"), nvalue == 2 ? atoi(domoticz["svalue1"]) / 10 : 0);
+        }
+
         if ((idx > 0) && (idx == sysCfg.domoticz_relay_idx[i])) {
           snprintf_P(stemp1, sizeof(stemp1), PSTR("%d"), i +1);
           if (2 == nvalue) {
@@ -353,6 +438,8 @@ void handleDomoticz()
   }
   page += FPSTR(HTTP_FORM_DOMOTICZ_TIMER);
   page.replace("{6", String((int)sysCfg.domoticz_update_timer));
+  page += FPSTR(HTTP_FORM_DOMOTICZ_FAN);
+  page.replace("{9", String((int)sysCfg.domoticz_fan_idx));
   page += F("</table>");
   page += FPSTR(HTTP_FORM_END);
   page += FPSTR(HTTP_BTN_CONF);
@@ -376,9 +463,10 @@ void domoticz_saveSettings()
     sysCfg.domoticz_sensor_idx[i] = (!strlen(webServer->arg(stemp).c_str())) ? 0 : atoi(webServer->arg(stemp).c_str());
   }
   sysCfg.domoticz_update_timer = (!strlen(webServer->arg("ut").c_str())) ? DOMOTICZ_UPDATE_TIMER : atoi(webServer->arg("ut").c_str());
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DOMOTICZ D_CMND_IDX " %d, %d, %d, %d, " D_CMND_UPDATETIMER " %d"),
+  sysCfg.domoticz_fan_idx = (!strlen(webServer->arg("fan").c_str())) ? 0 : atoi(webServer->arg("fan").c_str());
+  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DOMOTICZ D_CMND_IDX " %d, %d, %d, %d, " D_CMND_UPDATETIMER " %d, fan %d"),
     sysCfg.domoticz_relay_idx[0], sysCfg.domoticz_relay_idx[1], sysCfg.domoticz_relay_idx[2], sysCfg.domoticz_relay_idx[3],
-    sysCfg.domoticz_update_timer);
+    sysCfg.domoticz_update_timer, sysCfg.domoticz_fan_idx);
   addLog(LOG_LEVEL_INFO);
   snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DOMOTICZ D_CMND_KEYIDX " %d, %d, %d, %d, " D_CMND_SWITCHIDX " %d, %d, %d, %d, " D_CMND_SENSORIDX " %d, %d, %d, %d, %d, %d"),
     sysCfg.domoticz_key_idx[0], sysCfg.domoticz_key_idx[1], sysCfg.domoticz_key_idx[2], sysCfg.domoticz_key_idx[3],
