@@ -278,6 +278,16 @@ uint8_t lastwallswitch[4];            // Last wall switch states
 uint8_t holdwallswitch[4] = { 0 };    // Timer for wallswitch push button hold
 uint8_t blockgpio0 = 4;               // Block GPIO0 for 4 seconds after poweron to workaround Wemos D1 RTS circuit
 
+enum fan_mode_t {
+    FAN_MODE_OFF,
+    FAN_MODE_FAST,
+    FAN_MODE_SLOW,
+    FAN_MODE_MAX
+};
+
+uint8_t last_fan_switch_state;
+uint8_t fan_mode = FAN_MODE_OFF;
+
 mytmplt my_module;                    // Active copy of GPIOs
 uint8_t pin[GPIO_MAX];                // Possible pin configurations
 uint8_t rel_inverted[4] = { 0 };      // Relay inverted flag (1 = (0 = On, 1 = Off))
@@ -288,6 +298,7 @@ uint8_t i2c_flg = 0;                  // I2C configured
 uint8_t spi_flg = 0;                  // SPI configured
 uint8_t pwm_flg = 0;                  // PWM configured
 uint8_t sfl_flg = 0;                  // Sonoff Led flag (0 = No led, 1 = BN-SZ01, 2 = Sonoff Led, 5 = Sonoff B1)
+uint8_t fan_flg = 0;                  // has fan
 uint8_t pwm_idxoffset = 0;            // Allowed PWM command offset (change for Sonoff Led)
 
 boolean mDNSbegun = false;
@@ -548,6 +559,7 @@ void mqtt_connected()
     // Satisfy iobroker (#299)
     mqtt_data[0] = '\0';
     mqtt_publish_topic_P(0, S_RSLT_POWER);
+    update_fan_mode();      // to publish to server
 
     getTopic_P(stopic, 0, sysCfg.mqtt_topic, PSTR("#"));
     mqttClient.subscribe(stopic);
@@ -1003,6 +1015,13 @@ void mqttDataCb(char* topic, byte* data, unsigned int data_len)
       do_cmnd_power(index, payload);
       fallbacktopic = 0;
       return;
+    }
+    else if (!strcasecmp_P(type, PSTR("FANMODE"))) {
+        if( payload >= 0 && payload < FAN_MODE_MAX )
+            fan_mode = payload;
+
+        update_fan_mode();
+        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"FanMode\":%d}"), fan_mode);
     }
     else if (!strcasecmp_P(type, PSTR(D_CMND_STATUS))) {
       if ((payload < 0) || (payload > MAX_STATUS)) {
@@ -1843,6 +1862,10 @@ void state_mqttPresent()
   for (byte i = 0; i < Maxdevice; i++) {
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"%s\":\"%s\""), mqtt_data, getPowerDevice(stemp1, i +1, sizeof(stemp1)), getStateText(bitRead(power, i)));
   }
+
+  if( fan_flg )
+      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"FANMODE\":%d"), mqtt_data, fan_mode);
+
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_WIFI "\":{\"" D_AP "\":%d, \"" D_SSID "\":\"%s\", \"" D_RSSI "\":%d, \"" D_APMAC_ADDRESS "\":\"%s\"}}"),
     mqtt_data, sysCfg.sta_active +1, sysCfg.sta_ssid[sysCfg.sta_active], WIFI_getRSSIasQuality(WiFi.RSSI()), WiFi.BSSIDstr().c_str());
 }
@@ -2155,6 +2178,34 @@ void button_handler()
   }
 }
 
+// Make sure to update the init code that detects the inital fan_mode below if
+// the relay numbers are updated.
+void update_fan_mode() {
+  if( !fan_flg )
+    return;
+
+  char stopic[TOPSZ];
+
+  getTopic_P(stopic, 1, sysCfg.mqtt_topic, PSTR("FANMODE"));
+  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%d"), fan_mode);
+  mqtt_publish(stopic);
+
+  switch( fan_mode ) {
+    case FAN_MODE_OFF:
+        do_cmnd_power(1, 6);
+        do_cmnd_power(2, 6);
+        break;
+    case FAN_MODE_SLOW:
+        do_cmnd_power(1, 7);
+        do_cmnd_power(2, 6);
+        break;
+    case FAN_MODE_FAST:
+        do_cmnd_power(1, 6);
+        do_cmnd_power(2, 7);
+        break;
+  }
+}
+
 /*********************************************************************************************\
  * Switch handler
 \*********************************************************************************************/
@@ -2314,6 +2365,14 @@ void stateloop()
 
   button_handler();
   switch_handler();
+  if (pin[GPIO_FAN_CYCLE] < 99) {
+    uint8_t fan_switch_state = digitalRead(pin[GPIO_FAN_CYCLE]);
+    if( fan_switch_state != last_fan_switch_state ) {
+      fan_mode = ( fan_mode + 1 ) % FAN_MODE_MAX;
+      update_fan_mode();
+    }
+    last_fan_switch_state = fan_switch_state;
+  }
 
   if (sfl_flg) {  // Sonoff B1, AiLight, Sonoff led or BN-SZ01
     sl_animate();
@@ -2690,6 +2749,13 @@ void GPIO_init()
   }
   setLed(sysCfg.ledstate &8);
 
+  if (pin[GPIO_FAN_CYCLE] < 99) {
+    fan_flg = 1;
+    pinMode(pin[GPIO_FAN_CYCLE], pin[GPIO_FAN_CYCLE] == 16 ? INPUT_PULLDOWN_16 : INPUT_PULLUP);
+    delay(1);   // seems to need time to register the new value on startup if it is connected to +ve
+    last_fan_switch_state = digitalRead(pin[GPIO_FAN_CYCLE]);
+  }
+
 #ifdef USE_IR_REMOTE
   if (pin[GPIO_IRSEND] < 99) {
     ir_send_init();
@@ -2831,6 +2897,17 @@ void setup()
   }
 
   blink_powersave = power;
+
+  // Update the fan state from the power devices on the fan. Update when
+  // update_fan_mode() is modified
+  if (pin[GPIO_FAN_CYCLE] < 99) {
+    if( bitRead(power, 1-1) ) {
+        fan_mode = FAN_MODE_SLOW;
+    } else {
+        if( bitRead(power, 2-1) )
+            fan_mode = FAN_MODE_FAST;
+    }
+  }
 
   if (SONOFF_SC == sysCfg.module) {
     sc_init();

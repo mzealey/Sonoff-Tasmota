@@ -113,6 +113,7 @@ const char sensors[GPIO_SENSOR_END][9] PROGMEM = {
 enum fpins_t {
   GPIO_RXD = GPIO_SENSOR_END,  // Serial interface
   GPIO_TXD,            // Serial interface
+  GPIO_FAN_CYCLE,      // Mark fan cycle button
   GPIO_HLW_SEL,        // HLW8012 Sel output (Sonoff Pow)
   GPIO_HLW_CF1,        // HLW8012 CF1 voltage / current (Sonoff Pow)
   GPIO_HLW_CF,         // HLW8012 CF power (Sonoff Pow)
@@ -133,6 +134,7 @@ enum module_t {
   SONOFF_DUAL,
   SONOFF_POW,
   SONOFF_4CH,
+  MARK_FAN_LIGHT,
   S20,
   SLAMPHER,
   SONOFF_TOUCH,
@@ -182,6 +184,7 @@ const uint8_t nicelist[MAXMODULE] PROGMEM = {
   SONOFF_POW,
   SONOFF_4CH,
   SONOFF_4CHPRO,
+  MARK_FAN_LIGHT,
   SONOFF_SV,
   SONOFF_DEV,
   S20,
@@ -312,6 +315,24 @@ const mytmplt modules[MAXMODULE] PROGMEM = {
      GPIO_KEY4,        // GPIO14 Button 4
      GPIO_REL4,        // GPIO15 Red Led and Relay 4 (0 = Off, 1 = On)
      0, 0
+  },
+  { "Mark Fan Ligh",
+     GPIO_KEY1,        // GPIO00 Button 1
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
+     0,
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
+     GPIO_REL3,        // GPIO04 Relay 3 (track 3 - 2.5uf cap)
+     GPIO_REL2,        // GPIO05 Relay 2 (track 2 - direct fan connection)
+     0, 0, 0,          // Flash connection
+     0,
+     0,
+     0,
+     GPIO_REL1,        // GPIO12 Relay 1 (track 4 - 3uf cap)
+     GPIO_USER,        // DHT22
+     GPIO_SWT4,        // GPIO14 light pull chain
+     GPIO_REL4,        // GPIO15 Relay 4 (track 1 - light)
+     GPIO_FAN_CYCLE,   // GPIO16 fan pull chain
+     0
   },
   { "S20 Socket",      // S20 Smart Socket (ESP8266)
      GPIO_KEY1,        // GPIO00 Button
