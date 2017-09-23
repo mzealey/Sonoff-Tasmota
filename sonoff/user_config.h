@@ -174,6 +174,8 @@
 //  #define USE_WS2812_DMA                         // DMA supports only GPIO03 (= Serial RXD) (+1k mem)
                                                  //   When USE_WS2812_DMA is enabled expect Exceptions on Pow
 
+#define USE_28BYJ48                             // 28BYJ-48 4-wire motor
+
 /*********************************************************************************************\
  * Compile a minimal version if upgrade memory gets tight ONLY TO BE USED FOR UPGRADE STEP 1!
  *   To be used as step 1 during upgrade.

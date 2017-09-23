@@ -78,6 +78,9 @@ enum emul_t  {EMUL_NONE, EMUL_WEMO, EMUL_HUE, EMUL_MAX};
 #ifdef USE_WS2812
 #undef USE_WS2812                           // Disable WS2812 Led string
 #endif
+#ifdef USE_28BYJ48
+#undef USE_28BYJ48                          // Disable 28BYJ-48 motor
+#endif
 #ifdef USE_DS18B20
 #undef USE_DS18B20                          // Disable internal DS18B20 sensor
 #endif
@@ -186,6 +189,9 @@ enum opt_t   {P_HOLD_TIME, P_MAX_POWER_RETRY, P_MAX_PARAM8};   // Index in sysCf
 #ifdef USE_SPI
   #include <SPI.h>                          // SPI support, TFT
 #endif  // USE_SPI
+#ifdef USE_28BYJ48
+  #include "xdrv_28byj48.h"
+#endif
 #include "settings.h"
 
 struct TIME_T {
@@ -289,6 +295,9 @@ uint8_t spi_flg = 0;                  // SPI configured
 uint8_t pwm_flg = 0;                  // PWM configured
 uint8_t sfl_flg = 0;                  // Sonoff Led flag (0 = No led, 1 = BN-SZ01, 2 = Sonoff Led, 5 = Sonoff B1)
 uint8_t pwm_idxoffset = 0;            // Allowed PWM command offset (change for Sonoff Led)
+#ifdef USE_28BYJ48
+uint8_t flg_28byj48 = 1;              // Is 28BYJ-48 configured?
+#endif
 
 boolean mDNSbegun = false;
 
@@ -2662,7 +2671,17 @@ void GPIO_init()
       pinMode(pin[GPIO_SWT1 +i], (16 == pin[GPIO_SWT1 +i]) ? INPUT_PULLDOWN_16 :INPUT_PULLUP);
       lastwallswitch[i] = digitalRead(pin[GPIO_SWT1 +i]);  // set global now so doesn't change the saved power state on first switch check
     }
+#ifdef USE_28BYJ48
+    if (flg_28byj48 && pin[GPIO_28BYJ48_PHASE1 +i] < 99)
+      pinMode(pin[GPIO_28BYJ48_PHASE1 +i], OUTPUT);
+    else
+      flg_28byj48 = 0;
+#endif
   }
+
+#ifdef USE_28BYJ48
+    motor_28byj48_run( MOTOR_28BYJ48_STOP, 0 );
+#endif
 
 #ifdef USE_WS2812
   if (!sfl_flg && (pin[GPIO_WS2812] < 99)) {
@@ -2843,6 +2862,10 @@ void setup()
   addLog(LOG_LEVEL_INFO);
 }
 
+#ifdef USE_28BYJ48
+unsigned long next_motor_run = 0;       // milis of next motor run
+#endif
+
 void loop()
 {
   osw_loop();
@@ -2856,6 +2879,13 @@ void loop()
     pollUDP();
   }
 #endif  // USE_EMULATION
+
+#ifdef USE_28BYJ48
+  if( flg_28byj48 && millis() > next_motor_run ) {
+    motor_28byj48_next_step();
+    next_motor_run = millis() + 1;
+  }
+#endif
 
   if (millis() >= timerxs) {
     stateloop();

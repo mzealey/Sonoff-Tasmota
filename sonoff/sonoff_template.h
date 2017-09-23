@@ -61,6 +61,10 @@ enum upins_t {
   GPIO_CNTR2,
   GPIO_CNTR3,
   GPIO_CNTR4,
+  GPIO_28BYJ48_PHASE1,
+  GPIO_28BYJ48_PHASE2,
+  GPIO_28BYJ48_PHASE3,
+  GPIO_28BYJ48_PHASE4,
   GPIO_SENSOR_END };
 
 // Text in webpage Module Parameters and commands GPIOS and GPIO
@@ -106,7 +110,11 @@ const char sensors[GPIO_SENSOR_END][9] PROGMEM = {
   D_SENSOR_COUNTER "1",
   D_SENSOR_COUNTER "2",
   D_SENSOR_COUNTER "3",
-  D_SENSOR_COUNTER "4"
+  D_SENSOR_COUNTER "4",
+  D_SENSOR_MOTOR_PHASE "1",
+  D_SENSOR_MOTOR_PHASE "2",
+  D_SENSOR_MOTOR_PHASE "3",
+  D_SENSOR_MOTOR_PHASE "4",
   };
 
 // Programmer selectable GPIO functionality offset by user selectable GPIOs
