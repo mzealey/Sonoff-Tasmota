@@ -1296,6 +1296,19 @@ void mqttDataCb(char* topic, byte* data, unsigned int data_len)
       }
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_SLEEP "\":\"%d%s (%d%s)\"}"), sleep, (sysCfg.flag.value_units) ? " " D_UNIT_MILLISECOND : "", sysCfg.sleep, (sysCfg.flag.value_units) ? " " D_UNIT_MILLISECOND : "");
     }
+#ifdef USE_28BYJ48
+    else if (flg_28byj48 && !strcasecmp_P(type, PSTR(D_CMND_MOTOR))) {
+      motor_28byj48_direction_t cmd = MOTOR_28BYJ48_FORWARD;
+      if( payload == 0 )
+        cmd = MOTOR_28BYJ48_STOP;
+      else if( payload < 0 ) {
+        cmd = MOTOR_28BYJ48_BACK;
+        payload = -payload;
+      }
+      motor_28byj48_run( cmd, (int)payload );
+      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_MOTOR "\":\"%d\"}"), sleep, payload);
+    }
+#endif
     else if (!strcasecmp_P(type, PSTR(D_CMND_UPGRADE)) || !strcasecmp_P(type, PSTR(D_CMND_UPLOAD))) {
       // Check if the payload is numerically 1, and had no trailing chars.
       //   e.g. "1foo" or "1.2.3" could fool us.
