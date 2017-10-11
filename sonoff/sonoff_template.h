@@ -61,6 +61,8 @@ enum upins_t {
   GPIO_CNTR2,
   GPIO_CNTR3,
   GPIO_CNTR4,
+  GPIO_ROTARY_CLK,
+  GPIO_ROTARY_DT,
   GPIO_SENSOR_END };
 
 // Text in webpage Module Parameters and commands GPIOS and GPIO
@@ -106,7 +108,9 @@ const char sensors[GPIO_SENSOR_END][9] PROGMEM = {
   D_SENSOR_COUNTER "1",
   D_SENSOR_COUNTER "2",
   D_SENSOR_COUNTER "3",
-  D_SENSOR_COUNTER "4"
+  D_SENSOR_COUNTER "4",
+  D_SENSOR_ROTARY_CLK,
+  D_SENSOR_ROTARY_DT
   };
 
 // Programmer selectable GPIO functionality offset by user selectable GPIOs

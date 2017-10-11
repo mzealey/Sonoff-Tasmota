@@ -459,6 +459,8 @@
 #define D_SENSOR_LED      "Led"      // Suffix "1I"
 #define D_SENSOR_PWM      "PWM"      // Suffix "1"
 #define D_SENSOR_COUNTER  "Counter"  // Suffix "1"
+#define D_SENSOR_ROTARY_CLK "RotaryCL"
+#define D_SENSOR_ROTARY_DT "RotaryDT"
 
 // Units
 #define D_UNIT_AMPERE "A"

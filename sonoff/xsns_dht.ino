@@ -216,6 +216,19 @@ void dht_init()
  * Presentation
 \*********************************************************************************************/
 
+void lcd_dht_update( const char *temp, const char *hum ) {
+#ifdef USE_I2C_LCD
+  if( lcd_flg ) {
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd_print(temp);
+      lcd_print("oC; ");
+      lcd_print(hum);
+      lcd_print("%");
+  }
+#endif
+}
+
 void dht_mqttPresent(uint8_t* djson)
 {
   char stemp1[10];
@@ -228,6 +241,9 @@ void dht_mqttPresent(uint8_t* djson)
     if (dht_readTempHum(i, t, h)) {     // Read temperature
       dtostrfd(t, sysCfg.flag.temperature_resolution, stemp1);
       dtostrfd(h, sysCfg.flag.humidity_resolution, stemp2);
+
+      lcd_dht_update( stemp1, stemp2 );
+
       snprintf_P(mqtt_data, sizeof(mqtt_data), JSON_SNS_TEMPHUM, mqtt_data, dht[i].stype, stemp1, stemp2);
       *djson = 1;
 #ifdef USE_DOMOTICZ
@@ -245,6 +261,7 @@ String dht_webPresent()
 {
   String page = "";
   char stemp[10];
+  char hum[10];
   char sensor[80];
   float t;
   float h;
@@ -254,7 +271,8 @@ String dht_webPresent()
       dtostrfi(t, sysCfg.flag.temperature_resolution, stemp);
       snprintf_P(sensor, sizeof(sensor), HTTP_SNS_TEMP, dht[i].stype, stemp, tempUnit());
       page += sensor;
-      dtostrfi(h, sysCfg.flag.humidity_resolution, stemp);
+      dtostrfi(h, sysCfg.flag.humidity_resolution, hum);
+      lcd_dht_update( stemp, hum );
       snprintf_P(sensor, sizeof(sensor), HTTP_SNS_HUM, dht[i].stype, stemp);
       page += sensor;
     }

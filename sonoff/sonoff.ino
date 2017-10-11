@@ -183,6 +183,9 @@ enum opt_t   {P_HOLD_TIME, P_MAX_POWER_RETRY, P_MAX_PARAM8};   // Index in sysCf
 #ifdef USE_I2C
   #include <Wire.h>                         // I2C support library
 #endif  // USE_I2C
+#ifdef USE_I2C_LCD
+  #include <LiquidCrystal_I2C.h>
+#endif
 #ifdef USE_SPI
   #include <SPI.h>                          // SPI support, TFT
 #endif  // USE_SPI
@@ -298,8 +301,11 @@ uint8_t i2c_flg = 0;                  // I2C configured
 uint8_t spi_flg = 0;                  // SPI configured
 uint8_t pwm_flg = 0;                  // PWM configured
 uint8_t sfl_flg = 0;                  // Sonoff Led flag (0 = No led, 1 = BN-SZ01, 2 = Sonoff Led, 5 = Sonoff B1)
+uint8_t rot_flg = 0;                  // Has rotary encoder input
 uint8_t fan_flg = 0;                  // has fan
+uint8_t lcd_flg = 0;                  // has lcd
 uint8_t pwm_idxoffset = 0;            // Allowed PWM command offset (change for Sonoff Led)
+uint32_t last_backlight = 0;
 
 boolean mDNSbegun = false;
 
@@ -311,6 +317,9 @@ char mqtt_data[MESSZ];                // MQTT publish buffer
 char log_data[TOPSZ + MESSZ];         // Logging
 String Log[MAX_LOG_LINES];            // Web log buffer
 String Backlog[MAX_BACKLOG];          // Command backlog
+#ifdef USE_I2C_LCD
+LiquidCrystal_I2C lcd(0x3F, 16, 2);
+#endif
 
 /********************************************************************************************/
 
@@ -1282,7 +1291,7 @@ void mqttDataCb(char* topic, byte* data, unsigned int data_len)
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}}"),mqtt_data);
     }
     else if (!strcasecmp_P(type, PSTR(D_CMND_COUNTER)) && (index > 0) && (index <= MAX_COUNTERS)) {
-      if ((data_len > 0) && (pin[GPIO_CNTR1 + index -1] < 99)) {
+      if (data_len > 0) {
         rtcMem.pCounter[index -1] = payload16;
         sysCfg.pCounter[index -1] = payload16;
       }
@@ -1939,6 +1948,13 @@ void every_second()
     blockgpio0--;
   }
 
+#ifdef USE_I2C_LCD
+  if( lcd_flg && last_backlight && millis() - last_backlight > 10000 ) {
+    lcd.noBacklight();
+    last_backlight = 0;
+  }
+#endif
+
   for (byte i = 0; i < MAX_PULSETIMERS; i++) {
     if (pulse_timer[i] > 111) {
       pulse_timer[i]--;
@@ -2374,6 +2390,7 @@ void stateloop()
 
   button_handler();
   switch_handler();
+
   if (pin[GPIO_FAN_CYCLE] < 99) {
     uint8_t fan_switch_state = digitalRead(pin[GPIO_FAN_CYCLE]);
     if( fan_switch_state != last_fan_switch_state ) {
@@ -2616,6 +2633,12 @@ void serial()
 
 /********************************************************************************************/
 
+void lcd_print(const char *str) {
+    lcd.backlight();
+    lcd.print(str);
+    last_backlight = millis();
+}
+
 void GPIO_init()
 {
   uint8_t mpin;
@@ -2772,6 +2795,7 @@ void GPIO_init()
 #endif // USE_IR_REMOTE
 
   counter_init();
+  rotary_init();
 
   hlw_flg = ((pin[GPIO_HLW_SEL] < 99) && (pin[GPIO_HLW_CF1] < 99) && (pin[GPIO_HLW_CF] < 99));
   if (hlw_flg) {
@@ -2794,6 +2818,13 @@ void GPIO_init()
   i2c_flg = ((pin[GPIO_I2C_SCL] < 99) && (pin[GPIO_I2C_SDA] < 99));
   if (i2c_flg) {
     Wire.begin(pin[GPIO_I2C_SDA], pin[GPIO_I2C_SCL]);
+#ifdef USE_I2C_LCD
+    lcd.begin(16,2);
+    lcd_flg = 1;
+    lcd.init();
+    lcd.setCursor(0,0);
+    lcd_print("Loading...");
+#endif
   }
 #endif  // USE_I2C
 }
@@ -2942,6 +2973,9 @@ void loop()
     pollUDP();
   }
 #endif  // USE_EMULATION
+
+  if (rot_flg)
+      rotary_check();
 
   if (millis() >= timerxs) {
     stateloop();

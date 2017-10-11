@@ -23,7 +23,7 @@
 
 unsigned long pTimeLast[MAX_COUNTERS]; // Last counter time in milli seconds
 
-void counter_update(byte index)
+void counter_update(byte index, int8_t increment)
 {
   unsigned long pTime = millis() - pTimeLast[index -1];
   if (pTime > sysCfg.pCounterDebounce) {
@@ -31,7 +31,7 @@ void counter_update(byte index)
     if (bitRead(sysCfg.pCounterType, index -1)) {
       rtcMem.pCounter[index -1] = pTime;
     } else {
-      rtcMem.pCounter[index -1]++;
+      rtcMem.pCounter[index -1] += increment;
     }
 
 //    snprintf_P(log_data, sizeof(log_data), PSTR("CNTR: Interrupt %d"), index);
@@ -41,22 +41,22 @@ void counter_update(byte index)
 
 void counter_update1()
 {
-  counter_update(1);
+  counter_update(1, 1);
 }
 
 void counter_update2()
 {
-  counter_update(2);
+  counter_update(2, 1);
 }
 
 void counter_update3()
 {
-  counter_update(3);
+  counter_update(3, 1);
 }
 
 void counter_update4()
 {
-  counter_update(4);
+  counter_update(4, 1);
 }
 
 void counter_savestate()
@@ -79,6 +79,40 @@ void counter_init()
       attachInterrupt(pin[GPIO_CNTR1 +i], counter_callbacks[i], FALLING);
     }
   }
+}
+
+// I tried doing this with interrupts but it was far too noisy. This confuses
+// the direction occasionally when moving fast, but usually is correct.
+uint8_t last_rotary_clk, last_rotary_dt;
+void rotary_check() {
+    uint8_t rotary_clk = digitalRead(pin[GPIO_ROTARY_CLK]);
+    uint8_t rotary_dt = digitalRead(pin[GPIO_ROTARY_DT]);
+
+    if( rotary_clk != last_rotary_clk || rotary_dt != last_rotary_dt ) {
+        // Reaches the new point when both values have become the same
+        if( rotary_clk == rotary_dt ) {
+            addLog_P(LOG_LEVEL_INFO, rotary_clk != last_rotary_clk ? "Rotor changed down" : "Rotor changed up");
+            counter_update( 1, rotary_clk != last_rotary_clk ? -1 : 1 );
+#ifdef USE_I2C_LCD
+            if( lcd_flg )
+                lcd_print("");
+#endif
+        }
+
+        last_rotary_dt = rotary_dt;
+        last_rotary_clk = rotary_clk;
+    }
+}
+
+void rotary_init()
+{
+    if (pin[GPIO_ROTARY_CLK] < 99 && pin[GPIO_ROTARY_DT] < 99) {
+      rot_flg = 1;
+      pinMode(pin[GPIO_ROTARY_CLK], INPUT);
+      pinMode(pin[GPIO_ROTARY_DT], INPUT);
+      last_rotary_clk = digitalRead(pin[GPIO_ROTARY_CLK]);
+      last_rotary_dt = digitalRead(pin[GPIO_ROTARY_DT]);
+    }
 }
 
 /*********************************************************************************************\
