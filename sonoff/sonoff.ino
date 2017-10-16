@@ -797,6 +797,12 @@ boolean mqtt_command(boolean grpflg, char *type, uint16_t index, char *dataBuf, 
     }
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_BUTTONTOPIC "\":\"%s\"}"), sysCfg.button_topic);
   }
+  else if (!strcasecmp_P(type, PSTR("RSSISCAN"))) {
+    if (data_len > 0) {
+        dtostrf( run_scan_for_rssi(dataBuf, 5), 6, 2, stemp1 );
+        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"rssi\":\"%s\"}"), stemp1);
+    }
+  }
   else if (!strcasecmp_P(type, PSTR(D_CMND_SWITCHTOPIC))) {
     if ((data_len > 0) && (data_len < sizeof(sysCfg.switch_topic))) {
       mqttfy(0, dataBuf);
