@@ -95,8 +95,9 @@ const char kTasmotaCommands[] PROGMEM =
   D_CMND_TELEPERIOD "|" D_CMND_RESTART "|" D_CMND_RESET "|" D_CMND_TIMEZONE "|" D_CMND_TIMESTD "|" D_CMND_TIMEDST "|" D_CMND_ALTITUDE "|" D_CMND_LEDPOWER "|" D_CMND_LEDSTATE "|"
   D_CMND_I2CSCAN "|" D_CMND_SERIALSEND "|" D_CMND_BAUDRATE "|" D_CMND_SERIALDELIMITER "|" D_CMND_DRIVER;
 
-#define FAN_STAGES 4
-const uint8_t kIFan02Speed[FAN_STAGES][3] = {{6,6,6}, {7,6,6}, {7,7,6}, {7,6,7}};
+#define FAN_STAGES 3
+//const uint8_t kIFan02Speed[FAN_STAGES][3] = {{6,6,6}, {7,6,6}, {7,7,6}, {7,6,7}};
+const uint8_t kIFan02Speed[FAN_STAGES][3] = {{6,6,6}, {7,6,6}, {6,7,6}};
 
 // Global variables
 SerialConfig serial_config = SERIAL_8N1;    // Serial interface configuration 8 data bits, No parity, 1 stop bit
@@ -202,6 +203,7 @@ char mqtt_data[MESSZ];                      // MQTT publish buffer and web page 
 char log_data[LOGSZ];                       // Logging
 char web_log[WEB_LOG_SIZE] = {'\0'};        // Web log buffer
 String backlog[MAX_BACKLOG];                // Command backlog
+uint8_t last_fan_switch_state;
 
 /********************************************************************************************/
 
@@ -1907,6 +1909,16 @@ void SwitchHandler(byte mode)
       }
     }
   }
+
+  if (pin[GPIO_FAN_CYCLE] < 99) {
+    uint8_t fan_switch_state = digitalRead(pin[GPIO_FAN_CYCLE]);
+    if( fan_switch_state != last_fan_switch_state ) {
+      uint8_t payload = GetFanspeed() +1;
+      if (payload > FAN_STAGES - 1) { payload = 0; }
+      SetFanspeed(payload);
+      last_fan_switch_state = fan_switch_state;
+    }
+  }
 }
 
 /*********************************************************************************************\
@@ -2545,6 +2557,12 @@ void GpioInit()
   }
 
   SetLedPower(Settings.ledstate &8);
+
+  if (pin[GPIO_FAN_CYCLE] < 99) {
+    pinMode(pin[GPIO_FAN_CYCLE], pin[GPIO_FAN_CYCLE] == 16 ? INPUT_PULLDOWN_16 : INPUT_PULLUP);
+    delay(1);   // seems to need time to register the new value on startup if it is connected to +ve
+    last_fan_switch_state = digitalRead(pin[GPIO_FAN_CYCLE]);
+  }
 
   XdrvCall(FUNC_PRE_INIT);
 }

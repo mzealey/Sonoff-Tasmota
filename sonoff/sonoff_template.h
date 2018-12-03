@@ -139,6 +139,7 @@ enum UserSelectablePins {
 enum ProgramSelectablePins {
   GPIO_RXD = GPIO_SENSOR_END,  // Serial interface
   GPIO_TXD,            // Serial interface
+  GPIO_FAN_CYCLE,      // Mark fan cycle button
   GPIO_SPI_MISO,       // SPI MISO library fixed pin GPIO12
   GPIO_SPI_MOSI,       // SPI MOSI library fixed pin GPIO13
   GPIO_SPI_CLK,        // SPI Clk library fixed pin GPIO14
@@ -203,6 +204,7 @@ enum SupportedModules {
   SONOFF_DUAL,
   SONOFF_POW,
   SONOFF_4CH,
+  MARK_FAN_LIGHT,
   SONOFF_S2X,
   SLAMPHER,
   SONOFF_TOUCH,
@@ -389,6 +391,7 @@ const uint8_t kModuleNiceList[MAXMODULE] PROGMEM = {
   SONOFF_POW_R2,
   SONOFF_4CH,
   SONOFF_4CHPRO,
+  MARK_FAN_LIGHT,
   SONOFF_S31,          // Sonoff Socket Relay Devices with Energy Monitoring
   SONOFF_S2X,          // Sonoff Socket Relay Devices
   SONOFF_TOUCH,        // Sonoff Switch Devices
@@ -436,7 +439,7 @@ const uint8_t kModuleNiceList[MAXMODULE] PROGMEM = {
   WEMOS
 };
 
-#define IS_FAN_MODULE (Settings.module == SONOFF_IFAN02)
+#define IS_FAN_MODULE (Settings.module == SONOFF_IFAN02 || Settings.module == MARK_FAN_LIGHT)
 
 // Default module settings
 const mytmplt kModules[MAXMODULE] PROGMEM = {
@@ -540,6 +543,24 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      GPIO_KEY4,        // GPIO14 Button 4
      GPIO_REL4,        // GPIO15 Red Led and Relay 4 (0 = Off, 1 = On)
      0, 0
+  },
+  { "Mark Fan Ligh",
+     GPIO_KEY1,        // GPIO00 Button 1
+     GPIO_USER,        // GPIO01 Serial RXD and Optional sensor
+     0,
+     GPIO_USER,        // GPIO03 Serial TXD and Optional sensor
+     GPIO_REL2,        // GPIO04 Relay 2 (track 3 - 2.5uf cap)
+     GPIO_REL3,        // GPIO05 Relay 3 (track 2 - direct fan connection)
+     0, 0, 0,          // Flash connection
+     0,
+     0,
+     0,
+     GPIO_REL4,        // Ignore GPIO12 Relay 4 (track 4 - 3uf cap)
+     GPIO_USER,        // DHT22
+     GPIO_SWT1,        // GPIO14 light pull chain
+     GPIO_REL1,        // GPIO15 Relay 1 (track 1 - light)
+     GPIO_FAN_CYCLE,   // GPIO16 fan pull chain
+     0
   },
   { "Sonoff S2X",      // Sonoff S20, S22 and S26 Smart Socket (ESP8266)
      GPIO_KEY1,        // GPIO00 Button
