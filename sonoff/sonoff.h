@@ -74,7 +74,7 @@ typedef unsigned long power_t;              // Power (Relay) type
 #define MAX_RULE_TIMERS        8            // Max number of rule timers (4 bytes / timer)
 #define MAX_RULE_VARS          5            // Max number of rule variables (10 bytes / variable)
 
-#define MAX_FAN_SPEED          4            // Max number of iFan02 fan speeds (0 .. 3)
+#define MAX_FAN_SPEED          3            // Max number of iFan02 fan speeds (0 .. 3)
 
 #define MQTT_TOKEN_PREFIX      "%prefix%"   // To be substituted by mqtt_prefix[x]
 #define MQTT_TOKEN_TOPIC       "%topic%"    // To be substituted by mqtt_topic, mqtt_grptopic, mqtt_buttontopic, mqtt_switchtopic
@@ -253,7 +253,7 @@ const char kCommandSource[] PROGMEM = "I|MQTT|Restart|Button|Switch|Backlog|Seri
 
 const uint8_t kDefaultRfCode[9] PROGMEM = { 0x21, 0x16, 0x01, 0x0E, 0x03, 0x48, 0x2E, 0x1A, 0x00 };
 
-const uint8_t kIFan02Speed[MAX_FAN_SPEED][3] = {{6,6,6}, {7,6,6}, {7,7,6}, {7,6,7}};  // Do not use PROGMEM as it fails
+const uint8_t kIFan02Speed[MAX_FAN_SPEED][3] = {{6,6,6}, {7,6,6}, {6,7,6}};  // Do not use PROGMEM as it fails
 
 /*********************************************************************************************\
  * Extern global variables
